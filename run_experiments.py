@@ -1,8 +1,8 @@
 import subprocess
 import re
 
-# Παράμετροι πειραμάτων
-degrees = [1000, 5000, 10000] # Προσοχή: Το 10^5 είναι πολύ αργό για O(N^2)
+# Παράμετροι 
+degrees = [1000, 5000, 10000] 
 threads_list = [1, 2, 4, 8]
 runs_per_experiment = 4
 
@@ -21,7 +21,7 @@ for n in degrees:
         for _ in range(runs_per_experiment):
             output = run_cmd(n, t)
             
-            # Εξαγωγή χρόνων με regex
+            # Εξάγουμε τους  χρόνους με regex
             s_time = float(re.search(r"Serial Time: ([0-9.]+)", output).group(1))
             p_time = float(re.search(r"Parallel Time: ([0-9.]+)",  output).group(1))
             

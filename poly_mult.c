@@ -1,18 +1,18 @@
+#define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-//#include <time.h>
+#include <time.h>
 #include <string.h>
-#include <linux/time.h>
 
-// Δομή για τα ορίσματα που περνάμε σε κάθε νήμα
 typedef struct {
     int thread_id;
     int num_threads;
     int n;          // Βαθμός πολυωνύμου
-    int *A;         // Πολυώνυμο A
-    int *B;         // Πολυώνυμο B
-    long long *C;   // Πολυώνυμο αποτελέσματος (long long για αποφυγή overflow)
+    int *A;         
+    int *B;         
+    long long *C;   // long long για να αποφύγουμε overflow
 } thread_args_t;
 
 // Βοηθητική συνάρτηση για μέτρηση χρόνου
@@ -22,7 +22,6 @@ double get_time_diff(struct timespec start, struct timespec end) {
 
 // Σειριακός Αλγόριθμος (Ο(n^2))
 void serial_mult(int n, int *A, int *B, long long *C) {
-    // Μηδενισμός του πίνακα αποτελεσμάτων
     for (int i = 0; i <= 2 * n; i++) C[i] = 0;
 
     for (int i = 0; i <= n; i++) {
@@ -32,13 +31,12 @@ void serial_mult(int n, int *A, int *B, long long *C) {
     }
 }
 
-// Συνάρτηση που εκτελεί κάθε νήμα
 void *worker(void *arg) {
     thread_args_t *args = (thread_args_t *)arg;
     int n = args->n;
     int total_coeffs = 2 * n + 1; // Το αποτέλεσμα έχει βαθμό 2n, άρα 2n+1 όρους
 
-    // Υπολογισμός του εύρους δεικτών (k) που αναλογούν σε αυτό το νήμα
+    // Υπολογίζουμε το εύρος δεικτών (k) 
     // Διαμερίζουμε το τελικό πολυώνυμο C[k]
     int chunk = total_coeffs / args->num_threads;
     int remainder = total_coeffs % args->num_threads;
@@ -46,14 +44,12 @@ void *worker(void *arg) {
     int start_k = args->thread_id * chunk + (args->thread_id < remainder ? args->thread_id : remainder);
     int end_k = start_k + chunk + (args->thread_id < remainder ? 1 : 0);
 
-    // Υπολογισμός συντελεστών C[k] για το εύρος που ανατέθηκε
+    // Υπολογίζουμε τους συντελεστές C[k] για το εύρος που ανατέθηκε
     for (int k = start_k; k < end_k; k++) {
         long long sum = 0;
         
-        // Για να βρούμε το C[k], πρέπει να αθροίσουμε τα A[i]*B[j] όπου i+j = k
-        // Περιορισμοί: 0 <= i <= n ΚΑΙ 0 <= j <= n
-        // j = k - i => 0 <= k - i <= n => i <= k ΚΑΙ i >= k - n
-        
+        // Περιορισμοί: 0 <= i <= n και 0 <= j <= n
+        // j = k - i => 0 <= k - i <= n => i <= k και i >= k - n
         int start_i = (k - n > 0) ? (k - n) : 0;
         int end_i = (k < n) ? k : n;
 
@@ -78,7 +74,7 @@ int main(int argc, char *argv[]) {
     struct timespec start, end;
     double t_init, t_serial, t_parallel;
 
-    // --- 1. Initialization ---
+    // Αρχικοποίηση
     clock_gettime(CLOCK_MONOTONIC, &start);
     
     int *A = (int *)malloc((n + 1) * sizeof(int));
@@ -91,7 +87,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Initialize with random non-zero integers
+    // Αρχικοποιούμε με τυχαίους μη μηδενικούς ακεραίους
     srand(time(NULL));
     for (int i = 0; i <= n; i++) {
         do { A[i] = rand() % 100 - 50; } while (A[i] == 0);
@@ -101,13 +97,13 @@ int main(int argc, char *argv[]) {
     clock_gettime(CLOCK_MONOTONIC, &end);
     t_init = get_time_diff(start, end);
 
-    // --- 2. Serial Execution ---
+    // Σειριακή εκτε΄λεση
     clock_gettime(CLOCK_MONOTONIC, &start);
     serial_mult(n, A, B, C_serial);
     clock_gettime(CLOCK_MONOTONIC, &end);
     t_serial = get_time_diff(start, end);
 
-    // --- 3. Parallel Execution ---
+    // Παράλληλη εκτέλεση
     clock_gettime(CLOCK_MONOTONIC, &start);
     
     pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
@@ -130,7 +126,7 @@ int main(int argc, char *argv[]) {
     clock_gettime(CLOCK_MONOTONIC, &end);
     t_parallel = get_time_diff(start, end);
 
-    // --- 4. Verification ---
+    // Έλεγχος
     int correct = 1;
     for (int i = 0; i <= 2 * n; i++) {
         if (C_serial[i] != C_parallel[i]) {
@@ -140,14 +136,13 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // --- Output ---
     printf("Degree: %d, Threads: %d\n", n, num_threads);
     printf("Init Time: %.6f sec\n", t_init);
     printf("Serial Time: %.6f sec\n", t_serial);
     printf("Parallel Time: %.6f sec\n", t_parallel);
     printf("Verification: %s\n", correct ? "SUCCESS" : "FAILURE");
 
-    // Cleanup
+    // Αποδεσμεύουμε μνήμη
     free(A); free(B); free(C_serial); free(C_parallel);
     free(threads); free(args);
 
